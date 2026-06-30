@@ -5,6 +5,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
@@ -159,5 +160,53 @@ public class ReporteServiceTest {
                 resultado.getPorSucursal()
         );
     }
+
+    @Test
+        void reporteCategoria_listaVacia() {
+
+        when(
+                restTemplate.getForObject(
+                        anyString(),
+                        any(Class.class)
+                )
+        ).thenReturn(List.of());
+
+        List<ReporteCategoriaDTO> resultado =
+                service.reporteCategoria();
+
+        assertTrue(
+                resultado.isEmpty()
+        );
+}
+
+        @Test
+        void reporteCategoria_totalVentasCorrecto() {
+
+        when(
+                restTemplate.getForObject(
+                        anyString(),
+                        any(Class.class)
+                )
+        ).thenReturn(ventasMock());
+
+        ReporteCategoriaDTO libros =
+                service.reporteCategoria()
+                        .stream()
+                        .filter(r ->
+                                r.getCategoria()
+                                .equals("LIBROS"))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertEquals(
+                2,
+                libros.getTotalVentas()
+        );
+
+        assertEquals(
+                25000,
+                libros.getTotalIngresos()
+        );
+}
 }
 

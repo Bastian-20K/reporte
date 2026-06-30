@@ -19,11 +19,20 @@ import lombok.RequiredArgsConstructor;
 public class ReporteService {
     private final RestTemplate restTemplate;
 
-    private final String VENTAS_URL = "http://localhost:8085/api/v1/ventas";
+    private static final String VENTAS_URL = "http://localhost:8085/api/v1/ventas";
 
     public List<Map<String, Object>> obtenerVentas() {
-        return restTemplate.getForObject(VENTAS_URL, List.class);
-    }
+
+    List<Map<String, Object>> ventas =
+                restTemplate.getForObject(
+                        VENTAS_URL,
+                        List.class
+                );
+
+        return ventas == null
+                ? List.of()
+                : ventas;
+        }
 
     public List<ReporteCategoriaDTO> reporteCategoria() {
 
