@@ -1,5 +1,6 @@
 package com.bookpoint.reporte.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class ReporteService {
+
     private final RestTemplate restTemplate;
 
     private static final String VENTAS_PRESENCIAL_URL =
@@ -28,150 +30,213 @@ public class ReporteService {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> obtenerVentas() {
 
-        List<Map<String, Object>> ventas =
-                new java.util.ArrayList<>();
+        List<Map<String, Object>> ventas = new ArrayList<>();
 
         try {
-            List<Map<String, Object>> ventasPresenciales =
+
+            List<Map<String, Object>> presencial =
                     restTemplate.getForObject(
                             VENTAS_PRESENCIAL_URL,
                             List.class
                     );
 
-            if (ventasPresenciales != null) {
-                ventas.addAll(ventasPresenciales);
+            if (presencial != null) {
+                ventas.addAll(presencial);
             }
 
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         try {
-            List<Map<String, Object>> ventasOnline =
+
+            List<Map<String, Object>> online =
                     restTemplate.getForObject(
                             VENTAS_ONLINE_URL,
                             List.class
                     );
 
-            if (ventasOnline != null) {
-                ventas.addAll(ventasOnline);
+            if (online != null) {
+                ventas.addAll(online);
             }
 
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         return ventas;
     }
 
-    // 🔥 MÉTODO BASE PARA EVITAR REPETICIÓN
     @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> obtenerDetalles(List<Map<String, Object>> ventas) {
+    private List<Map<String, Object>> obtenerDetalles(
+            List<Map<String, Object>> ventas) {
 
         return ventas.stream()
                 .flatMap(v ->
-                        ((List<Map<String, Object>>) v.get("detalleProductos")).stream()
-                )
+                        ((List<Map<String, Object>>) v.get("detalleProductos"))
+                                .stream())
                 .toList();
     }
 
-    // =========================
-    // CATEGORÍA
-    // =========================
-    public List<ReporteCategoriaDTO> reporteCategoria() {
-
-        List<Map<String, Object>> ventas = obtenerVentas();
-
-        List<Map<String, Object>> detalles = obtenerDetalles(ventas);
+    private int calcularIngresos(
+            List<Map<String, Object>> detalles) {
 
         return detalles.stream()
+                .mapToInt(d ->
+
+                        Integer.parseInt(
+                                d.get("precio").toString())
+
+                                *
+
+                                Integer.parseInt(
+                                        d.get("cantidad").toString())
+
+                )
+                .sum();
+    }
+
+
+    // CATEGORÍA
+
+
+    public List<ReporteCategoriaDTO> reporteCategoria() {
+
+        List<Map<String, Object>> detalles =
+                obtenerDetalles(obtenerVentas());
+
+        return detalles.stream()
+
+                .filter(d -> d.get("categoria") != null)
+
                 .collect(Collectors.groupingBy(
                         d -> d.get("categoria").toString(),
                         Collectors.toList()
                 ))
+
                 .entrySet()
+
                 .stream()
+
                 .map(e -> {
-                    ReporteCategoriaDTO dto = new ReporteCategoriaDTO();
+
+                    ReporteCategoriaDTO dto =
+                            new ReporteCategoriaDTO();
+
                     dto.setCategoria(e.getKey());
-                    dto.setTotalVentas(e.getValue().size());
+
+                    dto.setTotalVentas(
+                            e.getValue().size());
+
                     dto.setTotalIngresos(
-                            e.getValue().stream()
-                                    .mapToInt(v ->
-                                            Integer.parseInt(v.get("precio").toString())
-                                    ).sum()
-                    );
+                            calcularIngresos(e.getValue()));
+
                     return dto;
+
                 })
+
                 .toList();
     }
 
-    // =========================
+
     // AUTOR
-    // =========================
+
+
     public List<ReporteAutorDTO> reporteAutor() {
 
-        List<Map<String, Object>> ventas = obtenerVentas();
-
-        List<Map<String, Object>> detalles = obtenerDetalles(ventas);
+        List<Map<String, Object>> detalles =
+                obtenerDetalles(obtenerVentas());
 
         return detalles.stream()
+
+                .filter(d -> d.get("autor") != null)
+
                 .collect(Collectors.groupingBy(
                         d -> d.get("autor").toString(),
                         Collectors.toList()
                 ))
+
                 .entrySet()
+
                 .stream()
+
                 .map(e -> {
-                    ReporteAutorDTO dto = new ReporteAutorDTO();
+
+                    ReporteAutorDTO dto =
+                            new ReporteAutorDTO();
+
                     dto.setAutor(e.getKey());
-                    dto.setTotalVentas(e.getValue().size());
+
+                    dto.setTotalVentas(
+                            e.getValue().size());
+
                     dto.setTotalIngresos(
-                            e.getValue().stream()
-                                    .mapToInt(v ->
-                                            Integer.parseInt(v.get("precio").toString())
-                                    ).sum()
-                    );
+                            calcularIngresos(e.getValue()));
+
                     return dto;
+
                 })
+
                 .toList();
     }
 
-    // =========================
-    // SUCURSAL (AQUÍ SÍ HAY ONLINE + PRESENCIAL)
-    // =========================
+
+    // SUCURSAL
+
+
     public List<ReporteSucursalDTO> reporteSucursal() {
 
-        List<Map<String, Object>> ventas = obtenerVentas();
-
-        List<Map<String, Object>> detalles = obtenerDetalles(ventas);
+        List<Map<String, Object>> detalles =
+                obtenerDetalles(obtenerVentas());
 
         return detalles.stream()
+
                 .collect(Collectors.groupingBy(
                         d -> d.get("sucursalId").toString(),
                         Collectors.toList()
                 ))
+
                 .entrySet()
+
                 .stream()
+
                 .map(e -> {
-                    ReporteSucursalDTO dto = new ReporteSucursalDTO();
+
+                    ReporteSucursalDTO dto =
+                            new ReporteSucursalDTO();
+
                     dto.setSucursal(e.getKey());
-                    dto.setTotalVentas(e.getValue().size());
+
+                    dto.setTotalVentas(
+                            e.getValue().size());
+
                     dto.setTotalIngresos(
-                            e.getValue().stream()
-                                    .mapToInt(v ->
-                                            Integer.parseInt(v.get("precio").toString())
-                                    ).sum()
-                    );
+                            calcularIngresos(e.getValue()));
+
                     return dto;
+
                 })
+
                 .toList();
     }
 
-    // =========================
+
     // GENERAL
-    // =========================
+
+
     public ReporteGeneralDTO reporteGeneral() {
-        ReporteGeneralDTO general = new ReporteGeneralDTO();
-        general.setPorCategoria(reporteCategoria());
-        general.setPorAutor(reporteAutor());
-        general.setPorSucursal(reporteSucursal());
+
+        ReporteGeneralDTO general =
+                new ReporteGeneralDTO();
+
+        general.setPorCategoria(
+                reporteCategoria());
+
+        general.setPorAutor(
+                reporteAutor());
+
+        general.setPorSucursal(
+                reporteSucursal());
+
         return general;
     }
+
 }
