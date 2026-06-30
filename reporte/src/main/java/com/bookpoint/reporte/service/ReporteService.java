@@ -19,27 +19,70 @@ import lombok.RequiredArgsConstructor;
 public class ReporteService {
     private final RestTemplate restTemplate;
 
-    private static final String VENTAS_URL = "http://localhost:8085/api/v1/ventas";
+    private static final String VENTAS_PRESENCIAL_URL =
+            "http://localhost:8085/api/v1/ventas/presencial";
 
+    private static final String VENTAS_ONLINE_URL =
+            "http://localhost:8085/api/v1/ventas/online";
+
+    @SuppressWarnings("unchecked")
     public List<Map<String, Object>> obtenerVentas() {
 
-    List<Map<String, Object>> ventas =
-                restTemplate.getForObject(
-                        VENTAS_URL,
-                        List.class
-                );
+        List<Map<String, Object>> ventas =
+                new java.util.ArrayList<>();
 
-        return ventas == null
-                ? List.of()
-                : ventas;
-        }
+        try {
+            List<Map<String, Object>> ventasPresenciales =
+                    restTemplate.getForObject(
+                            VENTAS_PRESENCIAL_URL,
+                            List.class
+                    );
 
+            if (ventasPresenciales != null) {
+                ventas.addAll(ventasPresenciales);
+            }
+
+        } catch (Exception ignored) {}
+
+        try {
+            List<Map<String, Object>> ventasOnline =
+                    restTemplate.getForObject(
+                            VENTAS_ONLINE_URL,
+                            List.class
+                    );
+
+            if (ventasOnline != null) {
+                ventas.addAll(ventasOnline);
+            }
+
+        } catch (Exception ignored) {}
+
+        return ventas;
+    }
+
+    // 🔥 MÉTODO BASE PARA EVITAR REPETICIÓN
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> obtenerDetalles(List<Map<String, Object>> ventas) {
+
+        return ventas.stream()
+                .flatMap(v ->
+                        ((List<Map<String, Object>>) v.get("detalleProductos")).stream()
+                )
+                .toList();
+    }
+
+    // =========================
+    // CATEGORÍA
+    // =========================
     public List<ReporteCategoriaDTO> reporteCategoria() {
 
         List<Map<String, Object>> ventas = obtenerVentas();
-        return ventas.stream()
+
+        List<Map<String, Object>> detalles = obtenerDetalles(ventas);
+
+        return detalles.stream()
                 .collect(Collectors.groupingBy(
-                        v -> v.get("categoria").toString(),
+                        d -> d.get("categoria").toString(),
                         Collectors.toList()
                 ))
                 .entrySet()
@@ -51,7 +94,7 @@ public class ReporteService {
                     dto.setTotalIngresos(
                             e.getValue().stream()
                                     .mapToInt(v ->
-                                            Integer.parseInt(v.get("totalPagar").toString())
+                                            Integer.parseInt(v.get("precio").toString())
                                     ).sum()
                     );
                     return dto;
@@ -59,12 +102,18 @@ public class ReporteService {
                 .toList();
     }
 
+    // =========================
+    // AUTOR
+    // =========================
     public List<ReporteAutorDTO> reporteAutor() {
 
         List<Map<String, Object>> ventas = obtenerVentas();
-        return ventas.stream()
+
+        List<Map<String, Object>> detalles = obtenerDetalles(ventas);
+
+        return detalles.stream()
                 .collect(Collectors.groupingBy(
-                        v -> v.get("autor").toString(),
+                        d -> d.get("autor").toString(),
                         Collectors.toList()
                 ))
                 .entrySet()
@@ -76,7 +125,7 @@ public class ReporteService {
                     dto.setTotalIngresos(
                             e.getValue().stream()
                                     .mapToInt(v ->
-                                            Integer.parseInt(v.get("totalPagar").toString())
+                                            Integer.parseInt(v.get("precio").toString())
                                     ).sum()
                     );
                     return dto;
@@ -84,12 +133,18 @@ public class ReporteService {
                 .toList();
     }
 
+    // =========================
+    // SUCURSAL (AQUÍ SÍ HAY ONLINE + PRESENCIAL)
+    // =========================
     public List<ReporteSucursalDTO> reporteSucursal() {
 
         List<Map<String, Object>> ventas = obtenerVentas();
-        return ventas.stream()
+
+        List<Map<String, Object>> detalles = obtenerDetalles(ventas);
+
+        return detalles.stream()
                 .collect(Collectors.groupingBy(
-                        v -> v.get("sucursal").toString(),
+                        d -> d.get("sucursalId").toString(),
                         Collectors.toList()
                 ))
                 .entrySet()
@@ -101,7 +156,7 @@ public class ReporteService {
                     dto.setTotalIngresos(
                             e.getValue().stream()
                                     .mapToInt(v ->
-                                            Integer.parseInt(v.get("totalPagar").toString())
+                                            Integer.parseInt(v.get("precio").toString())
                                     ).sum()
                     );
                     return dto;
@@ -109,6 +164,9 @@ public class ReporteService {
                 .toList();
     }
 
+    // =========================
+    // GENERAL
+    // =========================
     public ReporteGeneralDTO reporteGeneral() {
         ReporteGeneralDTO general = new ReporteGeneralDTO();
         general.setPorCategoria(reporteCategoria());
